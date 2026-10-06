@@ -1,0 +1,85 @@
+# Local stack that mirrors production:
+#   gateway (stands in for the GKE Gateway: /api -> backend, / -> frontend)
+#   postgres (Cloud SQL), redis with AUTH (Memorystore), local disk (GCS)
+
+x-backend: &backend
+  build: ./backend
+  image: devsecopsglobal-backend:local
+  environment:
+    DB_HOST: db
+    DB_NAME: learnhub
+    DB_USER: learnhub
+    DB_PASSWORD: learnhub
+    REDIS_HOST: redis
+    REDIS_PASSWORD: local-redis-password
+    JWT_SECRET: local-dev-only-change-me-0123456789abcdef
+    COOKIE_SECURE: "false"
+    TRUSTED_XFF_HOPS: "1"
+    STORAGE_BACKEND: local
+    LOCAL_STORAGE_DIR: /data/media
+    ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@devsecopsglobal.tech}
+    ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-admin-password}
+    ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Admin}
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: learnhub
+      POSTGRES_USER: learnhub
+      POSTGRES_PASSWORD: learnhub
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/create-test-db.sql:/docker-entrypoint-initdb.d/create-test-db.sql:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U learnhub -d learnhub"]
+      interval: 3s
+      retries: 20
+
+  redis:
+    image: redis:7.2-alpine  # same major/minor as Memorystore
+    command: ["redis-server", "--requirepass", "local-redis-password", "--save", ""]
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "local-redis-password", "--no-auth-warning", "ping"]
+      interval: 3s
+      retries: 20
+
+  # Same job ArgoCD runs as a PreSync hook in the cluster
+  migrate:
+    <<: *backend
+    command: ["sh", "-c", "alembic upgrade head && python -m app.cli bootstrap-admin"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backend:
+    <<: *backend
+    volumes:
+      - media:/data/media
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    image: devsecopsglobal-frontend:local
+
+  gateway:
+    image: nginx:1.29-alpine
+    volumes:
+      - ./scripts/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      - backend
+      - frontend
+
+volumes:
+  pgdata:
+  media:

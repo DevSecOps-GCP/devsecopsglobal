@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Env / secrets: real values live in Vault, never in Git
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local media uploads
+media/
