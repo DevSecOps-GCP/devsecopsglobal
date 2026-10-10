@@ -25,6 +25,9 @@ def _ssl_context(settings: Settings) -> ssl.SSLContext | None:
     # Cloud SQL server certs are issued for the instance name, not the private IP,
     # so we verify the CA chain but not the hostname.
     ctx.check_hostname = False
+    # They also lack the Authority Key Identifier extension that Python 3.13+ requires by
+    # default (VERIFY_X509_STRICT). The chain is still verified against the CA above.
+    ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
     if settings.db_ssl == "require":
         ctx.verify_mode = ssl.CERT_NONE
     return ctx
