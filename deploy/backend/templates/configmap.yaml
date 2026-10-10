@@ -4,6 +4,9 @@ metadata:
   name: {{ .Release.Name }}
   labels:
     {{- include "backend.labels" . | nindent 4 }}
+  annotations:
+    # Before the migration Job (wave -1), which reads it.
+    argocd.argoproj.io/sync-wave: "-2"
 data:
   {{- range $key, $value := .Values.config }}
   {{ $key }}: {{ $value | quote }}
@@ -16,6 +19,9 @@ metadata:
   name: {{ $.Release.Name }}-ca
   labels:
     {{- include "backend.labels" $ | nindent 4 }}
+  annotations:
+    # Before the migration Job (wave -1), which mounts it.
+    argocd.argoproj.io/sync-wave: "-2"
 data:
   {{- toYaml . | nindent 2 }}
 {{- end }}
