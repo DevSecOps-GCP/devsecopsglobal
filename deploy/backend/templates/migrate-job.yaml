@@ -1,0 +1,42 @@
+{{- if .Values.migrations.enabled }}
+# Runs on every ArgoCD sync, before the Deployment rolls (wave 0), and is kept until the
+# next sync for its logs. Migrations and the admin bootstrap are both idempotent.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-migrate
+  labels:
+    {{- include "backend.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        {{- include "backend.labels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "backend.podSecurityContext" . | nindent 8 }}
+      {{- include "backend.nodeSelector" . | nindent 6 }}
+      containers:
+        - name: migrate
+          image: {{ include "backend.image" . }}
+          command: ["sh", "-c", "alembic upgrade head && python -m app.cli bootstrap-admin"]
+          {{- include "backend.env" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            {{- include "backend.containerSecurityContext" . | nindent 12 }}
+          volumeMounts:
+            {{- include "backend.volumeMounts" . | nindent 12 }}
+      volumes:
+        {{- include "backend.volumes" . | nindent 8 }}
+{{- end }}

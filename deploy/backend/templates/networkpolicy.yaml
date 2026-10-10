@@ -1,0 +1,87 @@
+{{- if .Values.networkPolicy.enabled }}
+# Everything not allowed below is denied, for the API and the migration job.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-default-deny
+  labels:
+    {{- include "backend.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "backend.selectorLabels" . | nindent 6 }}
+  policyTypes: ["Ingress", "Egress"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-from-load-balancer
+  labels:
+    {{- include "backend.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "backend.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        {{- range .Values.networkPolicy.loadBalancerCidrs }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+      ports:
+        - port: 8000
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-egress
+  labels:
+    {{- include "backend.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "backend.selectorLabels" . | nindent 6 }}
+  policyTypes: ["Egress"]
+  egress:
+    # DNS
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # GKE metadata server: Workload Identity tokens
+    - to:
+        - ipBlock:
+            cidr: 169.254.169.254/32
+      ports:
+        - port: 80
+          protocol: TCP
+    - to:
+        - ipBlock:
+            cidr: 169.254.169.252/32
+      ports:
+        - port: 988
+          protocol: TCP
+    {{- with .Values.networkPolicy.privateServicesCidr }}
+    # Cloud SQL and Memorystore
+    - to:
+        - ipBlock:
+            cidr: {{ . }}
+      ports:
+        - port: 5432
+          protocol: TCP
+        - port: 6378
+          protocol: TCP
+    {{- end }}
+    # Google APIs (Cloud Storage, IAM Credentials) over HTTPS; nothing else inside the VPC
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+      ports:
+        - port: 443
+          protocol: TCP
+{{- end }}

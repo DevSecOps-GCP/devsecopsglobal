@@ -1,0 +1,45 @@
+{{- if .Values.route.enabled }}
+# The load balancer health-checks /healthz (process up); readiness on /readyz already
+# removes pods without a database from the endpoints.
+apiVersion: networking.gke.io/v1
+kind: HealthCheckPolicy
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "backend.labels" . | nindent 4 }}
+spec:
+  default:
+    checkIntervalSec: 10
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    config:
+      type: HTTP
+      httpHealthCheck:
+        portSpecification: USE_SERVING_PORT
+        requestPath: /healthz
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ .Release.Name }}
+---
+apiVersion: networking.gke.io/v1
+kind: GCPBackendPolicy
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "backend.labels" . | nindent 4 }}
+spec:
+  default:
+    timeoutSec: {{ .Values.backendPolicy.timeoutSec }}
+    logging:
+      enabled: true
+      sampleRate: {{ .Values.backendPolicy.logSampleRate }}
+    {{- with .Values.backendPolicy.securityPolicy }}
+    securityPolicy: {{ . }}
+    {{- end }}
+  targetRef:
+    group: ""
+    kind: Service
+    name: {{ .Release.Name }}
+{{- end }}

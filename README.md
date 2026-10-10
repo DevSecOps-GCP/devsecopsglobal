@@ -45,7 +45,7 @@ docker compose up --build     # http://localhost:8080
 ```
 
 `migrate` runs `alembic upgrade head` and creates the admin from `ADMIN_EMAIL`/`ADMIN_PASSWORD`;
-in the cluster the same command runs as an ArgoCD PreSync Job. Log in with that account, open
+in the cluster the same command runs as a Job before each backend rollout. Log in with that account, open
 **Admin**, upload your demo, and it appears in every learner's library.
 
 Videos: MP4 with H.264/AAC plays in every browser. To convert a screen recording:
@@ -90,9 +90,22 @@ Bold = secret, stored in Vault.
 ```
 backend/            FastAPI app, Alembic migrations, tests, Dockerfile
 frontend/           React app, nginx config with CSP, Dockerfile
+deploy/backend/     Helm chart: API, migration Job, Workload Identity, network policies, route
+deploy/frontend/    Helm chart: nginx, network policy, route
 scripts/            compose helpers (local gateway, test database)
-.github/workflows/  CI: lint, tests, migration drift, secret + dependency + image scans
+.github/workflows/  CI: lint, tests, migration drift, secret + dependency + image scans, release
+trivy.yaml          scan settings (renders the charts with a placeholder image tag)
 ```
 
-Coming next: the Helm chart (`charts/`) and the release workflow (push to Artifact Registry,
-cosign signing, image tag bump in the `infrastructure` repo for ArgoCD).
+## Deploy
+
+- **Release**: on `main`, once every check passes, CI pushes `backend:<sha>` and `frontend:<sha>`
+  to Artifact Registry (keyless, through the `production` environment) with SBOM and
+  provenance attestations.
+- **Charts**: `deploy/backend` and `deploy/frontend` are deployed to the `prod` cluster by two
+  ArgoCD Applications, `learnhub-backend` and `learnhub-frontend`, defined in the
+  `infrastructure` repo together with the production values (image tag, hostnames, Cloud SQL
+  and Memorystore endpoints and CA certificates).
+- **Order**: on each backend sync the migration Job runs first (ArgoCD Sync hook, wave -1),
+  then the Deployment rolls. Both routes share `app.devsecopsglobal.tech`: `/api` goes to the
+  backend and the more general `/` to the frontend.

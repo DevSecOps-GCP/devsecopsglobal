@@ -1,0 +1,69 @@
+# Published by the release job (.github/workflows/ci.yaml), tagged with the commit SHA.
+image:
+  repository: me-central1-docker.pkg.dev/devsecopsglobal-ops/devsecopsglobal/backend
+  tag: ""
+
+replicas: 2
+
+# Non-secret settings (see backend/app/config.py), rendered into a ConfigMap.
+config:
+  LOG_LEVEL: INFO
+  ENABLE_DOCS: "false"
+  COOKIE_SECURE: "true"
+  STORAGE_BACKEND: gcs
+
+# Secret providing DB_PASSWORD, REDIS_PASSWORD, JWT_SECRET, ADMIN_EMAIL and ADMIN_PASSWORD.
+# Created outside the chart (Vault Secrets Operator).
+secretName: learnhub-secrets
+
+# PEM files mounted at /etc/learnhub/ca/<key>, e.g. postgres.pem and redis.pem for
+# DB_CA_CERT and REDIS_CA_CERT.
+caCerts: {}
+
+serviceAccount:
+  name: learnhub-backend
+  # Google service account used through Workload Identity (bucket access, signed URLs).
+  gcpServiceAccount: ""
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  # Autopilot sets limits equal to requests.
+  limits:
+    cpu: 250m
+    memory: 512Mi
+
+# GKE ComputeClass for the pods (e.g. spot first, on-demand fallback).
+computeClass: ""
+
+# Database migrations and the first admin account, run on every sync before the rollout.
+migrations:
+  enabled: true
+
+# Public route through a Gateway owned by the platform.
+route:
+  enabled: false
+  hostname: ""
+  pathPrefix: /api
+  gateway:
+    name: ""
+    namespace: ""
+    sectionName: https
+
+# GKE load balancer settings for the Service.
+backendPolicy:
+  timeoutSec: 30
+  # Cloud Armor policy name; empty means none.
+  securityPolicy: ""
+  # Fraction of requests logged by the load balancer, in millionths.
+  logSampleRate: 1000000
+
+networkPolicy:
+  enabled: true
+  # Google load balancer proxies and health checks.
+  loadBalancerCidrs:
+    - 35.191.0.0/16
+    - 130.211.0.0/22
+  # Private services access range holding Cloud SQL (5432) and Memorystore (6378).
+  privateServicesCidr: ""

@@ -1,0 +1,6 @@
+# Scans render the Helm charts in deploy/ with a placeholder image tag; real tags are set
+# at deploy time and the charts refuse to render without one.
+misconfiguration:
+  helm:
+    set:
+      - image.tag=scan
