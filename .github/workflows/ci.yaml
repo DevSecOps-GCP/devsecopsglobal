@@ -142,3 +142,44 @@ jobs:
           sbom: true
       - name: Summary
         run: echo "Pushed \`$IMAGE:$GITHUB_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+
+  # Opens a pull request on the infrastructure repo pointing prod at the images just
+  # released; ArgoCD deploys them once it is merged. The token (environment secret, so only
+  # main can use it) may only write branches and pull requests on that repository.
+  promote:
+    needs: [release]
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    env:
+      INFRA_REPO: DevSecOps-GCP/infrastructure
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.INFRA_REPO }}
+          token: ${{ secrets.INFRA_PROMOTION_TOKEN }}
+      - name: Open the promotion pull request
+        env:
+          GH_TOKEN: ${{ secrets.INFRA_PROMOTION_TOKEN }}
+          TAG: ${{ github.sha }}
+        run: |
+          short=${TAG::7}
+          branch="promote/learnhub-$short"
+          for component in backend frontend; do
+            # The image tag is the only line of the form "  tag: <40-hex SHA>".
+            sed -i -E "s/^(  tag: )[0-9a-f]{40}$/\1$TAG/" "kubernetes/helm/apps/learnhub-$component/values-prod.yaml"
+          done
+          if git diff --quiet; then
+            echo "prod already runs $short" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "deploy(learnhub): $short"
+          git push origin "$branch"
+          url=$(gh pr create --repo "$INFRA_REPO" --base main --head "$branch" \
+            --title "deploy(learnhub): $short" \
+            --body "Deploys backend and frontend images \`$TAG\` (${{ github.server_url }}/${{ github.repository }}/commit/$TAG) to prod.")
+          echo "Promotion PR: $url" >> "$GITHUB_STEP_SUMMARY"

@@ -102,6 +102,8 @@ trivy.yaml          scan settings (renders the charts with a placeholder image t
 - **Release**: on `main`, once every check passes, CI pushes `backend:<sha>` and `frontend:<sha>`
   to Artifact Registry (keyless, through the `production` environment) with SBOM and
   provenance attestations.
+- **Promotion**: CI then opens a pull request on the `infrastructure` repo setting both image
+  tags in the production values; ArgoCD deploys once it is merged.
 - **Charts**: `deploy/backend` and `deploy/frontend` are deployed to the `prod` cluster by two
   ArgoCD Applications, `learnhub-backend` and `learnhub-frontend`, defined in the
   `infrastructure` repo together with the production values (image tag, hostnames, Cloud SQL
