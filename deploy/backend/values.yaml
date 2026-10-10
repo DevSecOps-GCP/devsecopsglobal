@@ -71,6 +71,14 @@ backendPolicy:
   # Fraction of requests logged by the load balancer, in millionths.
   logSampleRate: 1000000
 
+# Google Managed Prometheus scrapes /metrics through a PodMonitoring (GKE). Its collectors
+# run in collectorNamespace.
+metrics:
+  podMonitoring:
+    enabled: false
+    interval: 30s
+  collectorNamespace: gke-gmp-system
+
 networkPolicy:
   enabled: true
   # Google load balancer proxies and health checks.

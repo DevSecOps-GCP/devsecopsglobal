@@ -1,0 +1,18 @@
+{{- if .Values.metrics.podMonitoring.enabled }}
+# /metrics stays off the public route (only /api is routed); collectors scrape pods directly.
+apiVersion: monitoring.googleapis.com/v1
+kind: PodMonitoring
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "backend.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "backend.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.metrics.podMonitoring.interval }}
+{{- end }}
