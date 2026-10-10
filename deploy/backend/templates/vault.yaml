@@ -1,0 +1,42 @@
+{{- if .Values.vault.enabled }}
+# Applied before the migration Job (wave -1), which needs the synced Secret.
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "backend.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  method: jwt
+  mount: {{ required "vault.authMount is required" .Values.vault.authMount }}
+  jwt:
+    role: {{ required "vault.role is required" .Values.vault.role }}
+    serviceAccount: {{ .Values.serviceAccount.name }}
+    audiences:
+      - {{ .Values.vault.audience }}
+    tokenExpirationSeconds: 600
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "backend.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  vaultAuthRef: {{ .Release.Name }}
+  type: kv-v2
+  mount: {{ .Values.vault.kvMount }}
+  path: {{ required "vault.path is required" .Values.vault.path }}
+  refreshAfter: {{ .Values.vault.refreshAfter }}
+  destination:
+    name: {{ .Values.secretName }}
+    create: true
+  # A changed secret restarts the API so it picks up the new values.
+  rolloutRestartTargets:
+    - kind: Deployment
+      name: {{ .Release.Name }}
+{{- end }}
