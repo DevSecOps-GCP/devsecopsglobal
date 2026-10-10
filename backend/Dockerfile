@@ -11,7 +11,9 @@ COPY migrations ./migrations
 COPY app ./app
 
 FROM python:3.13-slim
-RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin app \
+# The app runs from the virtualenv above; pip (and the libraries it vendors) isn't needed.
+RUN python -m pip uninstall --yes --root-user-action=ignore pip \
+    && useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin app \
     && mkdir -p /data/media && chown 10001 /data/media
 WORKDIR /app
 COPY --from=build /app /app
