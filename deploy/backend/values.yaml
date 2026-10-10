@@ -13,8 +13,20 @@ config:
   STORAGE_BACKEND: gcs
 
 # Secret providing DB_PASSWORD, REDIS_PASSWORD, JWT_SECRET, ADMIN_EMAIL and ADMIN_PASSWORD.
-# Created outside the chart (Vault Secrets Operator).
 secretName: learnhub-secrets
+
+# Vault Secrets Operator: syncs a Vault KV v2 secret (keys named like the variables above)
+# into secretName, authenticating as the backend service account through a Vault JWT auth
+# method that trusts this cluster's service account issuer. When disabled, secretName must
+# be created some other way.
+vault:
+  enabled: false
+  authMount: ""
+  role: ""
+  audience: vault
+  kvMount: secret
+  path: ""
+  refreshAfter: 1h
 
 # PEM files mounted at /etc/learnhub/ca/<key>, e.g. postgres.pem and redis.pem for
 # DB_CA_CERT and REDIS_CA_CERT.
