@@ -1,0 +1,36 @@
+image:
+  repository: me-central1-docker.pkg.dev/devsecopsglobal-ops/devsecopsglobal/frontend
+  tag: ""
+
+replicas: 2
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+computeClass: ""
+
+route:
+  enabled: false
+  hostname: ""
+  pathPrefix: /
+  gateway:
+    name: ""
+    namespace: ""
+    sectionName: https
+
+backendPolicy:
+  timeoutSec: 30
+  securityPolicy: ""
+  # In millionths.
+  logSampleRate: 1000000
+
+networkPolicy:
+  enabled: true
+  loadBalancerCidrs:
+    - 35.191.0.0/16
+    - 130.211.0.0/22
