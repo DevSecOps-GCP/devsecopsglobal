@@ -6,7 +6,7 @@ import Landing from './pages/Landing'
 import Library from './pages/Library'
 import { Login, Signup } from './pages/AuthForms'
 import Watch from './pages/Watch'
-
+console.log('App.tsx loaded')
 function Header() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
